@@ -14,15 +14,15 @@ library(tidytext)
 library(kableExtra)
 
 # Load data
-source("https://raw.githubusercontent.com/ClosestNeighbours/DS4I-Project-2/main/sona-first-steps%20(1).R")
+source("https://raw.githubusercontent.com/susiemg/dsfi-assignment1/main/sona-first-steps.R")
 ```
 
 ## Introduction
 
-
 ## Data Cleaning
 
 ## Exploratory Data Analysis
+
 ```{r eda, warning=FALSE, message=FALSE, echo=FALSE}
 # Plot speeches by president
 speech_count_per_president <- sona %>%
@@ -83,4 +83,3 @@ sona %>%
 ## TF-IDF
 
 ## Neural Networks
-
