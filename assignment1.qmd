@@ -1,0 +1,86 @@
+---
+title: "Predict The President"
+author: "Susana Maganga"
+format: html
+editor: visual
+---
+
+```{r setup, warning=FALSE, message=FALSE, echo=FALSE}
+# Load packages
+library(tidyverse)
+library(ggplot2)
+library(caret)
+library(tidytext)
+library(kableExtra)
+
+# Load data
+source("https://raw.githubusercontent.com/ClosestNeighbours/DS4I-Project-2/main/sona-first-steps%20(1).R")
+```
+
+## Introduction
+
+
+## Data Cleaning
+
+## Exploratory Data Analysis
+```{r eda, warning=FALSE, message=FALSE, echo=FALSE}
+# Plot speeches by president
+speech_count_per_president <- sona %>%
+  group_by(president_13) %>%
+  summarize(speech_count = n())
+
+# Print the speech count per president
+#kbl(speech_count_per_president, col.names = c("President", "Count"), caption = "Number of Speeches by President") %>% kable_styling(bootstrap_options = c("hover","striped"),latex_options = "HOLD_position")
+```
+
+```{r speech per p, warning=FALSE, message=FALSE, echo=FALSE}
+# Create a bar plot for speeches per president
+ggplot(speech_count_per_president, aes(x = president_13, y = speech_count, fill = president_13)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Number of Speeches per President",
+       x = "President",
+       y = "Number of Speeches") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none") +
+  scale_fill_discrete(name = "President")
+```
+
+```{r words per p, warning=FALSE, message=FALSE, echo=FALSE}
+# Tokenize and count words per president
+word_count_per_president <- sona %>%
+  mutate(word_count = lengths(strsplit(speech, " "))) %>%
+  group_by(president_13) %>%
+  summarize(total_words = sum(word_count))
+
+# Print the word count per president
+#print(word_count_per_president)
+```
+
+```{r barplot of words, warning=FALSE, message=FALSE, echo=FALSE}
+# Create a bar plot for words per president
+ggplot(word_count_per_president, aes(x = president_13, y = total_words, fill = president_13)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Number of Words per President",
+       x = "President",
+       y = "Word Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), legend.position = "none") +
+  scale_fill_discrete(name = "President")
+```
+
+```{r top 20, warning=FALSE, message=FALSE, echo=FALSE}
+# Plot 20 most used words in speeches
+sona %>% 
+  unnest_tokens(word, speech, token = 'words') %>%
+  count(word, sort=TRUE) %>% 
+  filter(!word %in% stop_words$word) %>% 
+  filter(rank(desc(n)) <= 20) %>% 
+  ggplot(aes(x = reorder(word, n), y = n)) + geom_col() + coord_flip() + xlab("") + ylab("Count") + labs(title="Top 20 Most Used Words")
+```
+
+## Bag-of-Words Model
+
+## TF-IDF
+
+## Neural Networks
+
