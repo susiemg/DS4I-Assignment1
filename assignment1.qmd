@@ -14,7 +14,7 @@ library(tidytext)
 library(kableExtra)
 
 # Load data
-source("https://raw.githubusercontent.com/susiemg/dsfi-assignment1/main/sona-first-steps.R")
+load("sona.RData")
 ```
 
 ## Introduction
