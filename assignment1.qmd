@@ -13,8 +13,12 @@ library(caret)
 library(tidytext)
 library(kableExtra)
 
-# Load data
+# Load data and Pre-Process
 load("sona.RData")
+sona$president_13 <- as.factor(sona$president_13)
+sona$year <- as.numeric(sona$year)
+sona$date <- as.Date(sona$date,format = "%d-%m-%Y")
+tidy_sona <- sona %>% unnest_tokens(word, speech, token = "words", to_lower = T)
 ```
 
 ## Introduction
@@ -69,7 +73,7 @@ ggplot(word_count_per_president, aes(x = president_13, y = total_words, fill = p
 ```
 
 ```{r top 20, warning=FALSE, message=FALSE, echo=FALSE}
-# Plot 20 most used words in speeches
+# Plot 20 most used words in speeches (excluding stop words)
 sona %>% 
   unnest_tokens(word, speech, token = 'words') %>%
   count(word, sort=TRUE) %>% 
@@ -80,6 +84,11 @@ sona %>%
 
 ## Bag-of-Words Model
 
+
 ## TF-IDF
 
 ## Neural Networks
+
+## Multinomial Logit Regression
+
+## S
