@@ -82,13 +82,8 @@ sona %>%
   ggplot(aes(x = reorder(word, n), y = n)) + geom_col() + coord_flip() + xlab("") + ylab("Count") + labs(title="Top 20 Most Used Words")
 ```
 
-## Bag-of-Words Model
-
-
-## TF-IDF
-
 ## Neural Networks
 
-## Multinomial Logit Regression
+## Decision Trees
 
-## S
+## Convolutional Neural Networks
