@@ -327,7 +327,7 @@ results
 
 #### Word embeddings ####
 #### CNN ####
-max_features <- 2000        # choose max_features most popular words
+max_features <- 6000        # choose max_features most popular words
 tokenizer = text_tokenizer(num_words = max_features)
 
 fit_text_tokenizer(tokenizer, sona$speech)
@@ -350,7 +350,7 @@ test$y <-  y[-training_rows,]
 
 hist(unlist(lapply(sequences, length)), main = "Sequence length after tokenization")
 
-maxlen <- 8000               
+maxlen <- 9000               
 x_train <- train$x %>% pad_sequences(maxlen = maxlen)
 x_test <- test$x %>% pad_sequences(maxlen = maxlen)
 

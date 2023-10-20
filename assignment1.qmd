@@ -1,5 +1,5 @@
 ---
-title: "STA5073Z"
+title: "STA5073Z Assignment 1"
 author: "Susana Maganga"
 format: html
 editor: visual
@@ -15,8 +15,11 @@ execute:
 library(tidyverse)
 library(ggplot2)
 library(caret)
+library(rpart)
 library(tidytext)
 library(kableExtra)
+library(keras)
+library(tfhub)
 
 # Load data
 load("sona.RData")
@@ -58,9 +61,9 @@ The data used for this assignment were SONA speeches delivered by South African 
 
 ### Data Cleaning and Preprocessing
 
-Prior to beginning the analysis, the data had to be cleaned and preprocessed. Firstly, all the text files containing the speeches were read into R and combined into a single dataframe. Columns containing the date, year and president's name were appended to the data. Thereafter, the speeches were cleaned to remove the dates that appeared in the first line and any punctuation included. Finally, the columns were set to the appropriate format.
+Prior to beginning the analysis, the data had to be cleaned and preprocessed. Firstly, all the text files containing the speeches were read into R and combined into a single dataframe. Columns containing the date, year and president's name were appended to the data. Thereafter, the speeches were cleaned to remove the dates that appeared in the first line and any punctuation included in the speech. Finally, the columns were set to their appropriate formats i.e. date and factor.
 
-The dataset was then converted into a "tidy" format where the speeches were tokenised. Tokenisation is a process where a column, in this case the speech, is split into a specified *token* which include, but are not limited to, a word, sentence or n-gram. An n-gram is a sequence of n words in a text. The words were also converted to lower-case.
+The dataset was then converted into a "tidy" format where the speeches were tokenised. Tokenisation is a process where a column, in this case the speech, is split into a specified *token* which include, but are not limited to, a word, sentence or n-gram. An n-gram is a sequence of n words that are adjacent to each other in a text. The words were also converted to lower-case.
 
 ### Exploratory Data Analysis
 
@@ -119,7 +122,7 @@ top_pres %>%
 ```
 ### Feature Representation
 
-Before the predictive models can be fit, the text needs to be put in a format that can be fed into the algorithm. Three formats were considered: Bag-of-Words, Term frequency-inverse-document-frequency (tf-idf).
+Before the predictive models can be fit, the text needs to be put in a format that can be fed into the algorithm. Three formats were considered: Bag-of-Words, Term frequency-inverse-document-frequency (tf-idf) and word embeddings.
 
 #### Bag-of-words
 
@@ -127,7 +130,7 @@ The bag-of-words model is a representation of text where the unique words presen
 
 #### tf-idf
 
-tf-df is an approach where terms (words) present in a dataset are assigned a weight, where frequently occurring words are downweighted (such as stop words). Two components are calculated:
+tf-idf is an approach where terms (words) present in a dataset are assigned a weight, where frequently occurring words are downweighted (such as stop words). Two components are calculated:
 
 -   **tf**: The relative frequency of a word, i.e. the number of times a word appears in a particular document divided by the total number of words in the entire dataset.
 
@@ -137,7 +140,7 @@ The tf-idf score is calculated by multiplying the tf and idf components for each
 
 #### Trigrams
 
-An n-gram is a sequence of n words in a text. Trigrams, specifically, are sequences of 3 words adjacent to each other in text. These are more contextual as they have a certain order to them. These were also explored in this analysis. The trigrams were first extracted from each speech, separated and stop words were removed. After this was done, the trigrams were put back together and the top 200 trigrams were used.
+An n-gram is a sequence of n words in a text. Trigrams, specifically, are sequences of 3 words adjacent to each other in text. These are more contextual as they have a certain order to them. These were also explored in this analysis. The trigrams were first extracted from each speech, separated and stop words were removed. After this was done, the trigrams were put back together and the top 200 trigrams were extracted.
 
 #### Word Embeddings
 
@@ -147,17 +150,17 @@ Finally, word embeddings were considered. This is an approach where tokenisation
 
 A decision tree is a non-parametric supervised learning algorithm, which can be used for classification and regression problems. The tree starts at the root node, which has no incoming branches; it then branches off into internal/decision nodes. Leaf nodes are all the possible outcomes within the dataset. A greedy search is done to identify optimal split points in the tree in a top-down manner until all observations have been classified. Information gain and Gini impurity are typically used as the splitting criterion. Information gain is the difference in entropy before and after a split on a particular attribute. The ideal split is the one that yields the highest impurity gain. Entropy is a measure of impurity of the sample values and values can fall between 0 and 1. If all samples are categorised in one class, entropy is 0.
 
-$Entropy(S)=-\sum_{c\in C}p(c)\,log_2p(c)$
+$$Entropy(S)=-\sum_{c\in C}p(c)\,log_2p(c)$$
 
 where:
 
 -   $S$ is the dataset that entropy is calculated
 
--   $c$ is the classes in set $S$
+-   $c$ is the classes in dataset $S$
 
 -   $p(c)$ is the proportion of data points belonging to class $c$ to the number of total data points in set $S$
 
-$Information\;Gain(S,\alpha) = Entropy (S)-\sum_{v \in values(\alpha)} \frac{|S_v|}{|S|} Entropy(S_v)$
+$$Information\;Gain(S,\alpha) = Entropy (S)-\sum_{v \in values(\alpha)} \frac{|S_v|}{|S|} Entropy(S_v)$$
 
 where:
 
@@ -169,7 +172,7 @@ where:
 
 Gini impurity is the probability of classifying a random data point incorrectly if it were labelled based on the distribution of the class distribution. A lower value indicates "purity", where a node mostly contains observations belonging to one class.
 
-$Gini\;Impurity = 1 - \sum_{i}(p_i)^2$
+$$Gini\;Impurity = 1 - \sum_{i}(p_i)^2$$
 
 where $p_i$ is the probability of an observation being placed in class $i$ (IBM, n.d.).
 
@@ -193,7 +196,7 @@ Convolutional Neural Networks (CNNs) are an advanced class of neural network tha
 
 Similar to the NN, there were a number of hyperparameters to consider. Below are the chosen configurations:
 
--   Layer structure: The model used in this assignment had 1 input layer of embeddings with 50 nodes. There was also a one-dimensional convolutional layer with 64 filters. Maximum pooling for each 4 adjacent elements was utilised. A flattening layer was utilised to reshape the data for the subsequent layers. Finally, another hidden layer with 32 nodes was incorporated before passing through the output node.
+-   Layer structure: The model used in this assignment had 1 input layer of embeddings with 50 nodes. There was also a one-dimensional convolutional layer with 64 filters. Max pooling for each 4 adjacent elements was utilised. A flattening layer was employed to reshape the data for the subsequent layers. Finally, another hidden layer with 32 nodes was incorporated before passing through the output node.
 
 -   Number of epochs: The number of epochs was set to 30.
 
@@ -249,7 +252,7 @@ test_sona <- bag_of_words %>%
 fit <- rpart(president_13 ~ ., data = training_sona, method = 'class')
 predictions <- predict(fit, test_sona, type = 'class')
 pred_test <- table(test_sona$president_13, predictions)
-cat("Bag-of-words Accuracy: ", round(sum(diag(pred_test))/sum(pred_test), 3)) 
+bow_acc <- round(sum(diag(pred_test))/sum(pred_test), 3) 
 
 #### tf-idf ####
 sona_tdf <- tidy_sona %>%
@@ -298,7 +301,7 @@ test_sona <- tfidf %>%
 fit <- rpart(president_13 ~ ., data = training_sona, method = 'class')
 predictions <- predict(fit, test_sona, type = 'class')
 pred_test <- table(test_sona$president_13, predictions)
-cat("tf-idf Accuracy: ", round(sum(diag(pred_test))/sum(pred_test), 3))  
+tfidf_acc <- round(sum(diag(pred_test))/sum(pred_test), 3)  
 
 #### trigrams ####
 sona_trigrams <- sona %>% 
@@ -348,7 +351,10 @@ test_sona <- bag_of_t %>%
 fit <- rpart(president_13 ~ ., data = training_sona, method = 'class')
 predictions <- predict(fit, test_sona, type = 'class')
 pred_test <- table(test_sona$president_13, predictions)
-round(sum(diag(pred_test))/sum(pred_test), 3) 
+tri_acc <- round(sum(diag(pred_test))/sum(pred_test), 3)
+
+decision_trees <- data.frame(Model=c("Bag-of-words","tf-idf","Trigram"), Accuracy=c(bow_acc, tfidf_acc, tri_acc))
+kbl(decision_trees, caption = "Classification Tree Model Test Accuracies") %>% kable_styling(bootstrap_options = c("hover","striped"),latex_options = "HOLD_position")
 ```
 
 The accuracies are the same for all three models, indicating that regardless of the feature representation, the classification trees do a poor job at predicting the president. Below the graphical representation of the decision tree with trigrams is presented. It can be seen that the only predictions made were Zuma and Mbeki. This further confirms that the model was unable to perform the classification task.
@@ -360,10 +366,9 @@ text(fit)
 
 ### Neural Networks
 
-The NN models were fit on the bag-of-words, tf-idf and trigrams models. Below are plots with the training and validation losses and accuracies of each one. A seed was set for reproducibility. The test accuracies were also computed for evaluation.
+The NN models were fit on the bag-of-words, tf-idf and trigrams models. Plots with the training and validation losses and accuracies of each one are presented below along with the test accuracies. A seed was set for reproducibility. 
 
-```{r Neural Networks, warning=FALSE, message=FALSE, echo=FALSE}
-#### Bag-of-words ####
+```{r NN BOW, warning=FALSE, message=FALSE, echo=FALSE, fig.cap="NN Performance on Bag-of-Words"}
 set.seed(321)
 sample_index <- createDataPartition(bag_of_words$president_13, p = 0.7, list = FALSE)
 training_ids <- bag_of_words[sample_index, ] %>%
@@ -394,11 +399,12 @@ model %>% compile(
 history <- model %>% fit(train$x, train$y, epochs = 65, 
                          batch_size = 20,  validation_split = 0.1, verbose = 0) 
 
-plot(history, main="NN Performance on Bag-of-Words")
+plot(history)
 
 results_bow <- model %>% evaluate(test$x, test$y, batch_size = 20, verbose = 2)
+```
 
-#### tf-idf ####
+```{r NN tf-idf, warning=FALSE, message=FALSE, echo=FALSE, fig.cap="NN Performance on tf-idf"}
 set.seed(321)
 sample_index <- createDataPartition(tfidf$president_13, p = 0.7, list = FALSE)
 training_ids <- tfidf[sample_index, ] %>%
@@ -427,11 +433,12 @@ model %>% compile(
 
 history <- model %>% fit(train$x, train$y, epochs = 65, 
                          batch_size = 20,  validation_split = 0.1, verbose = 0) 
-plot(history, main="NN Performance on tf-idf")
+plot(history)
 
 results_tfidf <- model %>% evaluate(test$x, test$y, batch_size = 20, verbose = 2)
+```
 
-#### Trigrams ####
+```{r NN Trigrams, warning=FALSE, message=FALSE, echo=FALSE, fig.cap="NN Performance on Trigrams"}
 set.seed(321)
 sample_index <- createDataPartition(bag_of_t$president_13, p = 0.7, list = FALSE)
 training_ids <- bag_of_t[sample_index, ] %>% select(filename)
@@ -463,21 +470,81 @@ history <- model %>% fit(train$x, train$y, epochs = 65,
 plot(history, main="NN Performance on Trigrams")
 
 results_tri <- model %>% evaluate(test$x, test$y, batch_size = 20, verbose = 2)
-cat("Bag-of-Words Accuracy: ", results_bow[2])
-cat("tf-idf Accuracy: ", results_tfidf[2])
-cat("Trigrams Accuracy: ", results_tri[2])
+
+neural_networks <- data.frame(Model=c("Bag-of-words","tf-idf","Trigram"), Accuracy=c(results_bow[2],results_tfidf[2], results_tri[2]))
+
+kbl(neural_networks, caption = "Neural Network Models Test Accuracies") %>% kable_styling(bootstrap_options = c("hover","striped"),latex_options = "HOLD_position")
 ```
 
-The bag-of-words model performed relatively well this time, yielding a test error rate of 70%, whereas the tf-idf model performed even more poorly than any of the decision trees, earning a test accuracy rate of 30%. This is also seen in the plots; the bag-of-words model did better at generalising, as its validation errors were similar to the training. The loss of the tf-idf model was increasing and the cross-validation accuracies were consistently 0 which is a clear indication of its incapacity. The trigrams had a test accuracy of 70%, similar to the bag-of-words model, but the validation accuracies seem to have a more discrete distribution.
+The bag-of-words model performed relatively well this time, yielding a test error rate of 70%, whereas the tf-idf model performed even more poorly than any of the decision trees, earning a test accuracy rate of 30%. This is also seen in the plots; the bag-of-words model did better at generalising, as its validation and training accuracies were quite similar. The loss of the tf-idf model was increasing and the cross-validation accuracies were consistently 0 which is a clear indication of its incapacity. The trigrams had a test accuracy of 70%, similar to the bag-of-words model, but the validation accuracies seem to have a more discrete distribution.
 
 ### Convolution Neural Network
 
+A CNN using word embeddings as input was also fit and the results are presented below. A seed was once again set for reproducibility.
+
+```{r CNN Model, warning=FALSE, message=FALSE, echo=FALSE}
+max_features <- 6000      
+tokenizer = text_tokenizer(num_words = max_features)
+
+fit_text_tokenizer(tokenizer, sona$speech)
+sequences = tokenizer$texts_to_sequences(sona$speech)
+
+y <- to_categorical(as.integer(sona$president_13) - 1)
+
+set.seed(321)
+sample_index <- createDataPartition(sona$president_13, p = 0.7, list = FALSE)
+
+training_rows <- sample_index
+
+train <- list()
+test <- list()
+train$x <- sequences[training_rows]
+test$x <-  sequences[-training_rows]
+
+train$y <- y[training_rows,]
+test$y <-  y[-training_rows,]
+
+#hist(unlist(lapply(sequences, length)), main = "Sequence length after tokenization")
+
+maxlen <- 9000               
+x_train <- train$x %>% pad_sequences(maxlen = maxlen)
+x_test <- test$x %>% pad_sequences(maxlen = maxlen)
+
+embedding_dims <- 50
+tensorflow::set_random_seed(4)
+model <- keras_model_sequential() %>% 
+  layer_embedding(max_features, output_dim = embedding_dims, input_length = maxlen) %>%
+  layer_dropout(0.2) %>%
+  layer_conv_1d(filters = 64, kernel_size = 8, activation = "relu") %>%
+  layer_max_pooling_1d(pool_size = 4) %>%
+  layer_flatten() %>%
+  layer_dense(32, activation = "relu") %>%
+  layer_dense(6, activation = "softmax")
+
+model %>% compile(
+  loss = "categorical_crossentropy",
+  optimizer = "adam",
+  metrics = "accuracy"
+)
+
+history <- model %>%
+  fit(x_train, train$y, batch_size = 50, epochs = 30, verbose = 0, validation_split = 0.3)
+plot(history)
+results <- model %>% evaluate(x_test, test$y, batch_size=50, verbose = 2)
+
+kbl(data.frame(Accuracy=results[2]), caption = "CNN Model Test Accuracy") %>% kable_styling(bootstrap_options = c("hover","striped"),latex_options = "HOLD_position")
+```
+
+The results show that the CNN model did not perform too well. The validation loss was increasing with every epoch and the test accuracy was 60%. The validation and training accuracies are not approximately equal which means that the model does not generalise well.
 
 ## Conclusion and Limitations
 
+In this assignment, machine learning algorithms were implemented to attempt at predicting the president that made a certain statement. Classification trees, neural network and convolutional neural networks were applied on to bag-of-words, tf-idf and trigram models.
+From the results, it was seen that the NN built using bag-of-words and trigram models yielded the highest test accuracies (70%), while the NN with tf-idf yielded the lowest (30%). 
+
 It is important to note that there were various limitations to this study. One of them being that a hyperparameter search was not conducted with the NN and CNN models, due to computational constraints. When feasible, it is often advisable to perform a grid search that could potentially provide better performance results through considering different combinations of hyperparameter values.
 
-Another limitation was not experimenting with resampling methods such as ROSE or SMOTE. Given the fact that deKlerk and Mothlanthe were severely underrepresented in the data, this might have affected the models' performative ability. Resampling methods are typically beneficial for addressing class imbalances, however must be used with caution as they may lead to overfitting and loss of information.
+Another limitation was not experimenting with resampling methods such as ROSE or SMOTE. Given the fact that deKlerk and Mothlanthe were severely underrepresented in the data, this might have affected the models' performative ability. Resampling methods are typically beneficial for addressing class imbalances, however they must be used with caution as they may lead to overfitting and loss of information.
 
 ## References
 
