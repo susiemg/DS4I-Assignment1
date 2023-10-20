@@ -48,7 +48,7 @@ tidy_sona <- sona %>% unnest_tokens(word, speech, token = "words", to_lower = T)
 
 A State of Nation Address (SONA) is a speech given by the President of South Africa which serves as an annual report on the nation's state. The aim is to inform the public of various topics such the nation's progress, challenges, economy, budget, legislative proposals and future plans.
 
-Presidents have different priorities, themes and legacies when they come into office. At times, it may be of interest to know the individual goals of presidents. The objective of this assignment is therefore to build a predictive model that predicts the president that made a particular statement. Several predictive models built based on varied input data will be built and assessed for performance.  
+Presidents have different priorities, themes and legacies when they come into office. At times, it may be of interest to know the individual goals of presidents. The objective of this assignment is therefore to build a predictive model that predicts the president that made a particular statement. Several predictive models built based on varied input data will be built and assessed for performance.
 
 ## Data and Methods
 
@@ -64,8 +64,7 @@ The dataset was then converted into a "tidy" format where the speeches were toke
 
 ### Exploratory Data Analysis
 
-To gain insight on the data, exploratory data analysis was conducted. A table with the number of speeches made by each president is displayed below.
-It can be seen that deKlerk and Motlanthe have only one speech. This can be attributed to the fact that deKlerk's term ended in 1994 and the data available ranges from the years 1994 to 2023. Motlanthe only served for approximately seven months as he was an interim president, after the resignation of Thabo Mbeki.
+To gain insight on the data, exploratory data analysis was conducted. A table with the number of speeches made by each president is displayed below. It can be seen that deKlerk and Motlanthe have only one speech. This can be attributed to the fact that deKlerk's term ended in 1994 and the data available ranges from the years 1994 to 2023. Motlanthe only served for approximately seven months as he was an interim president, after the resignation of Thabo Mbeki.
 
 ```{r Speech per President, warning=FALSE, message=FALSE, echo=FALSE}
 speech_count_per_president <- sona %>%
@@ -93,8 +92,7 @@ ggplot(word_count_per_president, aes(x = president_13, y = total_words, fill = p
   scale_fill_discrete(name = "President")
 ```
 
-The most commonly used words overall and broken down by president are displayed below. This was done after excluding stop words. Stop words are a set of commonly used words in a language such as "the", "and" and "is".
-Not surprisingly, the most prominent words were generally **government**, **people** and **south**. deKlerk was different, having **constitution** and **freedom** as his most spoken words, in addition to **south**.
+The most commonly used words overall and broken down by president are displayed below. This was done after excluding stop words. Stop words are a set of commonly used words in a language such as "the", "and" and "is". Not surprisingly, the most prominent words were generally **government**, **people** and **south**. deKlerk was different, having **constitution** and **freedom** as his most spoken words, in addition to **south**.
 
 ```{r Top 20 Words Used Excl Stop, warning=FALSE, message=FALSE, echo=FALSE, fig.align='center', fig.show="hold"}
 sona %>% 
@@ -119,9 +117,36 @@ top_pres %>%
   coord_flip() +
   labs(title = "Top 5 Positive Words per President", x = "", y = "Frequency")
 ```
+
 ### Decision Trees
 
-A decision tree is a non-parametric supervised learning algorithm, which can be used for classification and regression problems. The tree starts at the root node, which has no incoming branches; it then branches off into internal/decision nodes. Leaf nodes are all the possible outcomes within the dataset. A greedy search is done to identify optimal split points in the tree in a top-down manner until all observations have been classified. Information gain and Gini impurity are typically used as the splitting criterion.
+A decision tree is a non-parametric supervised learning algorithm, which can be used for classification and regression problems. The tree starts at the root node, which has no incoming branches; it then branches off into internal/decision nodes. Leaf nodes are all the possible outcomes within the dataset. A greedy search is done to identify optimal split points in the tree in a top-down manner until all observations have been classified. Information gain and Gini impurity are typically used as the splitting criterion. Information gain is the difference in entropy before and after a split on a particular attribute. The ideal split is the one that yields the highest impurity gain. Entropy is a measure of impurity of the sample values and values can fall between 0 and 1. If all samples are categorised in one class, entropy is 0.
+
+$Entropy(S)=-\sum_{c\in C}p(c)\,log_2p(c)$
+
+where:
+
+-   $S$ is the dataset that entropy is calculated
+
+-   $c$ is the classes in set $S$
+
+-   $p(c)$ is the proportion of data points belonging to class $c$ to the number of total data points in set $S$
+
+$Information\;Gain(S,\alpha) = Entropy (S)-\sum_{v \in values(\alpha)} \frac{|S_v|}{|S|} Entropy(S_v)$
+
+where:
+
+-   $\alpha$ represents a specific class label
+
+-   $Entropy(S)$ is the entropy of dataset $S$
+
+-   $\frac{|S_v|}{|S|}$ represents the proportion of the values in $|S_v|$ to the number of values in dataset $S$
+
+Gini impurity is the probability of classifying a random data point incorrectly if it were labelled based on the distribution of the class distribution. A lower value indicates "purity", where a node mostly contains observations belonging to one class.
+
+$Gini\;Impurity = 1 - \sum_{i}(p_i)^2$
+
+where $p_i$ is the probability of an observation being placed in class $i$ (IBM, n.d.).
 
 ### Neural Networks
 
@@ -137,13 +162,11 @@ There are various hyperparameters that can be tuned in an NN model to optimise i
 
 -   Activation function: Activation functions facilitate non-linearity in neural networks. Common activation functions include sigmoid, tanh and recified linear unit (ReLU). ReLu was chosen for this model as it is widely used and relatively faster to compute. Softmax was used as the activation function in the output layer; it converts the output scores into probabilities for each class.
 
-
 ### Convolutional Neural Networks
 
 Convolutional Neural Networks (CNNs) are an advanced class of neural network that comprise of three main layers: convolutional, pooling and fully connected, in addition to the input and output layers. The data undergoes transformations as it flows through the layers, and the complexity of the object increases. The convolutional layer is where most of the computation occurs, where filters are applied to the input to extract features. The pooling layer performs dimensionality reduction to reduce the number of parameters being passed on to the next layer. There are two main types of pooling: max pooling, where the filter selects the entry with the maximum value to send to the output array; and average pooling, where the filter computes the average value to send to the output array. Reducing the dimension aids with efficiency and reducing the risk of overfitting. The fully connected layer makes the final prediction based on features extracted in the previous layers (IBM, n.d.).
 
 Similar to the NN, there were a number of hyperparameters to consider:
-
 
 ## Results
 
@@ -155,9 +178,10 @@ Another limitation was not experimenting with resampling methods such as ROSE or
 
 ## References
 
+IBM. (n.d.). Decision Trees. Retrieved from https://www.ibm.com/topics/decision-trees
+
 IBM. (n.d.). Convolutional Neural Networks. Retrieved from https://www.ibm.com/topics/convolutional-neural-networks
 
 IBM. (n.d.). Neural Networks. Retrieved from https://www.ibm.com/topics/neural-networks
 
-South African Government. (n.d.). State of the Nation Address. Retrieved from https://www.gov.za/state-nation-address.
-‌
+South African Government. (n.d.). State of the Nation Address. Retrieved from https://www.gov.za/state-nation-address. ‌
