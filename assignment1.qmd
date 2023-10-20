@@ -117,6 +117,31 @@ top_pres %>%
   coord_flip() +
   labs(title = "Top 5 Positive Words per President", x = "", y = "Frequency")
 ```
+### Feature Representation
+
+Before the predictive models can be fit, the text needs to be put in a format that can be fed into the algorithm. Three formats were considered: Bag-of-Words, Term frequency-inverse-document-frequency (tf-idf).
+
+#### Bag-of-words
+
+The bag-of-words model is a representation of text where the unique words present in the dataset (corpus) are the "bag-of-words" or vocabulary. The frequency of occurrence of each word is used as features to train a classifier in the form of a matrix. The order of the words and grammar is discarded in this process. In this assignment, stop words were excluded from the dataset and the top 200 words were considered when using the bag-of-words model.
+
+#### tf-idf
+
+tf-df is an approach where terms (words) present in a dataset are assigned a weight, where frequently occurring words are downweighted (such as stop words). Two components are calculated:
+
+-   **tf**: The relative frequency of a word, i.e. the number of times a word appears in a particular document divided by the total number of words in the entire dataset.
+
+-   **idf**: A measure of how many documents in the corpus contain a particular word. The inverse frequency then undergoes a log transformation. Commonly used words have their weights decreased more than those that are less frequently occurring.
+
+The tf-idf score is calculated by multiplying the tf and idf components for each term.
+
+#### Trigrams
+
+An n-gram is a sequence of n words in a text. Trigrams, specifically, are sequences of 3 words adjacent to each other in text. These are more contextual as they have a certain order to them. These were also explored in this analysis. The trigrams were first extracted from each speech, separated and stop words were removed. After this was done, the trigrams were put back together and the top 200 trigrams were used.
+
+#### Word Embeddings
+
+Finally, word embeddings were considered. This is an approach where tokenisation turns each text (in this case, speech) into a a vector of integers, where each integer represents a specified token. The default token is words, and that is what will be used in this assignment. When the vectors are generated, there is bound to be differences in length. For this reason, padding is introduced; this is where shorter sequences are appended with zeros.  
 
 ### Decision Trees
 
@@ -166,9 +191,287 @@ There are various hyperparameters that can be tuned in an NN model to optimise i
 
 Convolutional Neural Networks (CNNs) are an advanced class of neural network that comprise of three main layers: convolutional, pooling and fully connected, in addition to the input and output layers. The data undergoes transformations as it flows through the layers, and the complexity of the object increases. The convolutional layer is where most of the computation occurs, where filters are applied to the input to extract features. The pooling layer performs dimensionality reduction to reduce the number of parameters being passed on to the next layer. There are two main types of pooling: max pooling, where the filter selects the entry with the maximum value to send to the output array; and average pooling, where the filter computes the average value to send to the output array. Reducing the dimension aids with efficiency and reducing the risk of overfitting. The fully connected layer makes the final prediction based on features extracted in the previous layers (IBM, n.d.).
 
-Similar to the NN, there were a number of hyperparameters to consider:
+Similar to the NN, there were a number of hyperparameters to consider. Below are the chosen configurations:
 
-## Results
+-   Layer structure: The model used in this assignment had 1 input layer of embeddings with 50 nodes. There was also a one-dimensional convolutional layer with 64 filters. Maximum pooling for each 4 adjacent elements was utilised. A flattening layer was utilised to reshape the data for the subsequent layers. Finally, another hidden layer with 32 nodes was incorporated before passing through the output node.
+
+-   Number of epochs: The number of epochs was set to 30.
+
+-   Dropout: A dropout ratio of 0.2 was used in the models.
+
+-   Activation function: Similar to the NN model, the ReLu activation function was used in the hidden layers and softmax in the output layer.
+
+## Results and Discussion
+
+### Classification Trees
+
+The first set of models are the bag-of-words, tf-idf and trigrams applied to the classification tree algorithm. Below are the test accuracies obtained.
+
+```{r Classification Trees, warning=FALSE, message=FALSE, echo=FALSE}
+#### Bag-of-Words ####
+word_bag <- tidy_sona %>%
+  filter(!word %in% stop_words$word) %>% 
+  group_by(word) %>% 
+  count() %>%
+  ungroup() %>% 
+  top_n(200, wt = n) %>%
+  select(-n)
+
+sona_tdf <- tidy_sona %>%
+  inner_join(word_bag) %>%
+  group_by(filename, president_13, word) %>%
+  count() %>%  
+  group_by(filename) %>%
+  mutate(total = sum(n)) %>%
+  ungroup()
+
+bag_of_words <- sona_tdf %>% 
+  select(filename, word, n) %>% 
+  pivot_wider(names_from = word, values_from = n, values_fill = 0) %>%
+  left_join(sona %>% select(filename, president_13)) %>%
+  select(filename, president_13, everything())
+
+# Building a classifier
+set.seed(321)
+sample_index <- createDataPartition(bag_of_words$president_13, p = 0.7, list = FALSE)
+training_ids <- bag_of_words[sample_index, ] %>%
+  select(filename)
+
+# Decision Tree
+training_sona <- bag_of_words %>%
+  right_join(training_ids, by = 'filename') %>% 
+  select(-filename)
+
+test_sona <- bag_of_words %>%
+  anti_join(training_ids, by = 'filename') %>% 
+  select(-filename)
+
+fit <- rpart(president_13 ~ ., data = training_sona, method = 'class')
+predictions <- predict(fit, test_sona, type = 'class')
+pred_test <- table(test_sona$president_13, predictions)
+cat("Bag-of-words Accuracy: ", round(sum(diag(pred_test))/sum(pred_test), 3)) 
+
+#### tf-idf ####
+sona_tdf <- tidy_sona %>%
+  inner_join(word_bag) %>%
+  group_by(filename, president_13, word) %>%
+  count() %>%  
+  group_by(filename) %>%
+  mutate(total = sum(n)) %>%
+  ungroup()
+
+ndocs <- length(unique(sona_tdf$filename))
+
+# Calculate idf
+idf <- sona_tdf %>% 
+  group_by(word) %>% 
+  summarize(docs_with_word = n()) %>% 
+  ungroup() %>%
+  mutate(idf = log(ndocs / docs_with_word)) %>% arrange(desc(idf))
+
+# Calculate tf-idf
+sona_tdf <- sona_tdf %>% 
+  left_join(idf, by = 'word') %>% 
+  mutate(tf = n/total, tf_idf = tf * idf)
+
+# Reshape dataset
+tfidf <- sona_tdf %>% 
+  select(filename, word, tf_idf) %>%  # note the change, using tf-idf
+  pivot_wider(names_from = word, values_from = tf_idf, values_fill = 0) %>%  
+  left_join(sona %>% select(filename, president_13))
+
+# Building a classifier
+set.seed(321)
+sample_index <- createDataPartition(tfidf$president_13, p = 0.7, list = FALSE)
+training_ids <- tfidf[sample_index, ] %>%
+  select(filename)
+
+# Decision Tree
+training_sona <- tfidf %>% 
+  right_join(training_ids, by = 'filename') %>%
+  select(-filename)
+
+test_sona <- tfidf %>% 
+  anti_join(training_ids, by = 'filename') %>%
+  select(-filename)
+
+fit <- rpart(president_13 ~ ., data = training_sona, method = 'class')
+predictions <- predict(fit, test_sona, type = 'class')
+pred_test <- table(test_sona$president_13, predictions)
+cat("tf-idf Accuracy: ", round(sum(diag(pred_test))/sum(pred_test), 3))  
+
+#### trigrams ####
+sona_trigrams <- sona %>% 
+  unnest_tokens(trigram, speech, token = "ngrams", n = 3)
+trigrams_separated <- sona_trigrams %>%
+  separate(trigram, c('word1','word2','word3'), sep = " ")
+trigrams_filtered <- trigrams_separated %>%
+  filter_at(vars(word1, word2, word3), all_vars(!(. %in% stop_words$word)))
+
+trigrams_united <- trigrams_filtered %>%
+  unite(trigram, word1, word2, word3, sep = " ")
+
+top_trigrams <- trigrams_united %>%
+  group_by(president_13, trigram) %>%
+  count() %>%
+  top_n(100, wt = n) %>%
+  select(-n)
+
+sona_tdf <- trigrams_united %>%
+  inner_join(top_trigrams) %>%
+  group_by(filename, president_13, trigram) %>%
+  count() %>%
+  group_by(filename) %>%
+  mutate(total = sum(n)) %>%
+  ungroup()
+
+bag_of_t <- sona_tdf %>%
+  select(filename, trigram, n) %>%
+  pivot_wider(names_from = trigram, values_from = n, values_fill = 0) %>%
+  left_join(sona %>% select(filename, president_13)) %>%
+  select(filename, president_13, everything())
+
+# Building a classifier
+set.seed(321)
+sample_index <- createDataPartition(bag_of_t$president_13, p = 0.7, list = FALSE)
+training_ids <- bag_of_t[sample_index, ] %>% select(filename)
+
+# Decision Tree
+training_sona <- bag_of_t %>%
+  right_join(training_ids, by = 'filename') %>% 
+  select(-filename)
+
+test_sona <- bag_of_t %>%
+  anti_join(training_ids, by = 'filename') %>% 
+  select(-filename)
+
+fit <- rpart(president_13 ~ ., data = training_sona, method = 'class')
+predictions <- predict(fit, test_sona, type = 'class')
+pred_test <- table(test_sona$president_13, predictions)
+round(sum(diag(pred_test))/sum(pred_test), 3) 
+```
+
+The accuracies are the same for all three models, indicating that regardless of the feature representation, the classification trees do a poor job at predicting the president. Below the graphical representation of the decision tree with trigrams is presented. It can be seen that the only predictions made were Zuma and Mbeki. This further confirms that the model was unable to perform the classification task.
+
+```{r Classification Tree Plot, warning=FALSE, message=FALSE, echo=FALSE}
+plot(fit, main="Classification tree applied on the trigram model")
+text(fit)
+```
+
+### Neural Networks
+
+The NN models were fit on the bag-of-words, tf-idf and trigrams models. Below are plots with the training and validation losses and accuracies of each one. A seed was set for reproducibility. The test accuracies were also computed for evaluation.
+
+```{r Neural Networks, warning=FALSE, message=FALSE, echo=FALSE}
+#### Bag-of-words ####
+set.seed(321)
+sample_index <- createDataPartition(bag_of_words$president_13, p = 0.7, list = FALSE)
+training_ids <- bag_of_words[sample_index, ] %>%
+  select(filename)
+
+training_rows <- sample_index
+
+train <- list()
+test <- list()
+train$x <- as.matrix(bag_of_words[training_rows,-c(1,2)])
+test$x <-  as.matrix(bag_of_words[-training_rows,-c(1,2)])
+
+train$y <- to_categorical(as.integer(bag_of_words$president_13[training_rows]) - 1)
+test$y <-  to_categorical(as.integer(bag_of_words$president_13[-training_rows]) - 1)
+
+tensorflow::set_random_seed(4)
+model <- keras_model_sequential() %>%
+  layer_dense(units = 32, input_shape = dim(train$x)[2], activation = "relu") %>% 
+  layer_dropout(rate=0.2) %>% 
+  layer_dense(units = 6, activation = "softmax")
+
+model %>% compile(
+  loss = "categorical_crossentropy",
+  optimizer = "adam",
+  metrics = "accuracy"
+)
+
+history <- model %>% fit(train$x, train$y, epochs = 65, 
+                         batch_size = 20,  validation_split = 0.1, verbose = 0) 
+
+plot(history, main="NN Performance on Bag-of-Words")
+
+results_bow <- model %>% evaluate(test$x, test$y, batch_size = 20, verbose = 2)
+
+#### tf-idf ####
+set.seed(321)
+sample_index <- createDataPartition(tfidf$president_13, p = 0.7, list = FALSE)
+training_ids <- tfidf[sample_index, ] %>%
+  select(filename)
+training_rows <- sample_index
+
+train <- list()
+test <- list()
+train$x <- as.matrix(tfidf[training_rows,-c(1,202)])
+test$x <-  as.matrix(tfidf[-training_rows,-c(1,202)])
+
+train$y <- to_categorical(as.integer(tfidf$president_13[training_rows]) - 1)
+test$y <-  to_categorical(as.integer(tfidf$president_13[-training_rows]) - 1)
+
+tensorflow::set_random_seed(4)
+model <- keras_model_sequential() %>%
+  layer_dense(units = 32, input_shape = dim(train$x)[2], activation = "relu") %>% 
+  layer_dropout(rate=0.2) %>% 
+  layer_dense(units = 6, activation = "softmax")
+
+model %>% compile(
+  loss = "categorical_crossentropy",
+  optimizer = "adam",
+  metrics = "accuracy"
+)
+
+history <- model %>% fit(train$x, train$y, epochs = 65, 
+                         batch_size = 20,  validation_split = 0.1, verbose = 0) 
+plot(history, main="NN Performance on tf-idf")
+
+results_tfidf <- model %>% evaluate(test$x, test$y, batch_size = 20, verbose = 2)
+
+#### Trigrams ####
+set.seed(321)
+sample_index <- createDataPartition(bag_of_t$president_13, p = 0.7, list = FALSE)
+training_ids <- bag_of_t[sample_index, ] %>% select(filename)
+
+training_rows <- sample_index
+
+train <- list()
+test <- list()
+train$x <- as.matrix(bag_of_t[training_rows,-c(1,2)])
+test$x <-  as.matrix(bag_of_t[-training_rows,-c(1,2)])
+
+train$y <- to_categorical(as.integer(bag_of_t$president_13[training_rows]) - 1)
+test$y <-  to_categorical(as.integer(bag_of_t$president_13[-training_rows]) - 1)
+
+tensorflow::set_random_seed(4)
+model <- keras_model_sequential() %>%
+  layer_dense(units = 32, input_shape = dim(train$x)[2], activation = "relu") %>% 
+  layer_dropout(rate=0.2) %>% 
+  layer_dense(units = 6, activation = "softmax")
+
+model %>% compile(
+  loss = "categorical_crossentropy",
+  optimizer = "adam",
+  metrics = "accuracy"
+)
+
+history <- model %>% fit(train$x, train$y, epochs = 65, 
+                         batch_size = 20,  validation_split = 0.1, verbose = 0) 
+plot(history, main="NN Performance on Trigrams")
+
+results_tri <- model %>% evaluate(test$x, test$y, batch_size = 20, verbose = 2)
+cat("Bag-of-Words Accuracy: ", results_bow[2])
+cat("tf-idf Accuracy: ", results_tfidf[2])
+cat("Trigrams Accuracy: ", results_tri[2])
+```
+
+The bag-of-words model performed relatively well this time, yielding a test error rate of 70%, whereas the tf-idf model performed even more poorly than any of the decision trees, earning a test accuracy rate of 30%. This is also seen in the plots; the bag-of-words model did better at generalising, as its validation errors were similar to the training. The loss of the tf-idf model was increasing and the cross-validation accuracies were consistently 0 which is a clear indication of its incapacity. The trigrams had a test accuracy of 70%, similar to the bag-of-words model, but the validation accuracies seem to have a more discrete distribution.
+
+### Convolution Neural Network
+
 
 ## Conclusion and Limitations
 

@@ -82,6 +82,7 @@ sona %>%
 
 #### Bag-of-words ####
 word_bag <- tidy_sona %>%
+  filter(!word %in% stop_words$word) %>% 
   group_by(word) %>% 
   count() %>%
   ungroup() %>% 
@@ -213,8 +214,8 @@ training_rows <- sample_index
 
 train <- list()
 test <- list()
-train$x <- as.matrix(tfidf[training_rows,-c(1,204)])
-test$x <-  as.matrix(tfidf[-training_rows,-c(1,204)])
+train$x <- as.matrix(tfidf[training_rows,-c(1,202)])
+test$x <-  as.matrix(tfidf[-training_rows,-c(1,202)])
 
 train$y <- to_categorical(as.integer(tfidf$president_13[training_rows]) - 1)
 test$y <-  to_categorical(as.integer(tfidf$president_13[-training_rows]) - 1)
@@ -240,25 +241,25 @@ results
 
 #### n-grams ####
 # tokenisation
-sona_qgrams <- sona %>% 
+sona_trigrams <- sona %>% 
   unnest_tokens(trigram, speech, token = "ngrams", n = 3)
 
-# separate quintgrams
-trigrams_separated <- sona_qgrams %>% separate(trigram,
+# separate trigrams
+trigrams_separated <- sona_trigrams %>% separate(trigram,
                                              c('word1', 'word2', 'word3'),
                                              sep = " ")
 # remove stop words
 trigrams_filtered <- trigrams_separated %>%
   filter_at(vars(word1, word2, word3), all_vars(!(. %in% stop_words$word)))
 
-# join quintgrams again
+# join trigrams again
 trigrams_united <- trigrams_filtered %>%
   unite(trigram, word1, word2, word3, sep = " ")
 
 top_trigrams <- trigrams_united %>%
   group_by(president_13, trigram) %>%
   count() %>%
-  top_n(50, wt = n) %>%
+  top_n(200, wt = n) %>%
   select(-n)
 
 sona_tdf <- trigrams_united %>%
@@ -362,7 +363,7 @@ model <- keras_model_sequential() %>%
   layer_max_pooling_1d(pool_size = 4) %>%
   layer_flatten() %>%
   layer_dense(32, activation = "relu") %>%
-  layer_dense(4, activation = "softmax")
+  layer_dense(6, activation = "softmax")
 
 model %>% compile(
   loss = "categorical_crossentropy",
