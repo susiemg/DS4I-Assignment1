@@ -20,6 +20,7 @@ library(tidytext)
 library(kableExtra)
 library(keras)
 library(tfhub)
+library(rpart.plot)
 
 # Load data
 load("sona.RData")
@@ -360,8 +361,7 @@ kbl(decision_trees, caption = "Classification Tree Model Test Accuracies") %>% k
 The accuracies are the same for all three models, indicating that regardless of the feature representation, the classification trees do a poor job at predicting the president. Below the graphical representation of the decision tree with trigrams is presented. It can be seen that the only predictions made were Zuma and Mbeki. This further confirms that the model was unable to perform the classification task.
 
 ```{r Classification Tree Plot, warning=FALSE, message=FALSE, echo=FALSE}
-plot(fit, main="Classification tree applied on the trigram model")
-text(fit)
+rpart.plot(fit, main="Classification tree applied on the trigram model")
 ```
 
 ### Neural Networks
@@ -396,8 +396,9 @@ model %>% compile(
   metrics = "accuracy"
 )
 
-history <- model %>% fit(train$x, train$y, epochs = 65, 
-                         batch_size = 20,  validation_split = 0.1, verbose = 0) 
+rub1 <- capture.output({
+  history <- model %>% fit(train$x, train$y, epochs = 65, 
+                         batch_size = 20,  validation_split = 0.1, verbose = 0) })
 
 plot(history)
 
@@ -431,8 +432,9 @@ model %>% compile(
   metrics = "accuracy"
 )
 
-history <- model %>% fit(train$x, train$y, epochs = 65, 
-                         batch_size = 20,  validation_split = 0.1, verbose = 0) 
+rub2 <- capture.output({
+  history <- model %>% fit(train$x, train$y, epochs = 65, 
+                         batch_size = 20,  validation_split = 0.1, verbose = 0) })
 plot(history)
 
 results_tfidf <- model %>% evaluate(test$x, test$y, batch_size = 20, verbose = 2)
@@ -465,8 +467,9 @@ model %>% compile(
   metrics = "accuracy"
 )
 
-history <- model %>% fit(train$x, train$y, epochs = 65, 
-                         batch_size = 20,  validation_split = 0.1, verbose = 0) 
+rub3 <- capture.output({
+  history <- model %>% fit(train$x, train$y, epochs = 65, 
+                         batch_size = 20,  validation_split = 0.1, verbose = 0) })
 plot(history, main="NN Performance on Trigrams")
 
 results_tri <- model %>% evaluate(test$x, test$y, batch_size = 20, verbose = 2)
@@ -482,7 +485,7 @@ The bag-of-words model performed relatively well this time, yielding a test erro
 
 A CNN using word embeddings as input was also fit and the results are presented below. A seed was once again set for reproducibility.
 
-```{r CNN Model, warning=FALSE, message=FALSE, echo=FALSE}
+```{r CNN Model, warning=FALSE, message=FALSE, echo=FALSE, fig.cap="CNN Performance with Word Embeddings"}
 max_features <- 6000      
 tokenizer = text_tokenizer(num_words = max_features)
 
@@ -527,12 +530,13 @@ model %>% compile(
   metrics = "accuracy"
 )
 
-history <- model %>%
-  fit(x_train, train$y, batch_size = 50, epochs = 30, verbose = 0, validation_split = 0.3)
+rub4 <- capture.output({
+  history <- model %>%
+  fit(x_train, train$y, batch_size = 50, epochs = 30, verbose = 0, validation_split = 0.3)})
 plot(history)
 results <- model %>% evaluate(x_test, test$y, batch_size=50, verbose = 2)
 
-kbl(data.frame(Accuracy=results[2]), caption = "CNN Model Test Accuracy") %>% kable_styling(bootstrap_options = c("hover","striped"),latex_options = "HOLD_position")
+kbl(data.frame(Accuracy=results[2]), caption = "CNN Model Test Accuracy",row.names = FALSE) %>% kable_styling(bootstrap_options = c("hover","striped"),latex_options = "HOLD_position")
 ```
 
 The results show that the CNN model did not perform too well. The validation loss was increasing with every epoch and the test accuracy was 60%. The validation and training accuracies are not approximately equal which means that the model does not generalise well.
