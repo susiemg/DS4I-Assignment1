@@ -10,6 +10,24 @@ library(tfhub)
 
 # Load data and Pre-Process
 load("sona.RData")
+
+# Remove date appearing at the beginning of speech
+x <- sona$speech
+y <- sub('^\\w*\\s*\\w*\\s*\\w*\\s*', '', x[1:34])
+sona$speech[1:34] <- y
+
+# Format 35th speech 
+z <- sub("^[A-Za-z]+, \\d{1,2} [A-Za-z]+ \\d{4}  ", "", x[35])
+sona$speech[35] <- z
+
+# Format 36th speech
+a <- sub("\\d{1,2} [A-Za-z]+ \\d{4}", "", x[36])
+sona$speech[36] <- a
+
+# Remove all non-alphanumeric characters
+sona$speech <- str_replace_all(sona$speech, "[^[:alnum:]]", " ")
+
+# Convert to appropriate format
 sona$president_13 <- as.factor(sona$president_13)
 sona$year <- as.numeric(sona$year)
 sona$date <- as.Date(sona$date,format = "%d-%m-%Y")
@@ -61,15 +79,6 @@ sona %>%
   filter(rank(desc(n)) <= 20) %>% 
   ggplot(aes(x = reorder(word, n), y = n)) + geom_col() + coord_flip() + xlab("")
 
-
-#### Pre-process pt 2####
-# Removing deKlerk and Motlanthe
-load("sona.RData")
-sona <- sona[-c(2,20),]
-sona$president_13 <- as.factor(sona$president_13)
-sona$year <- as.numeric(sona$year)
-sona$date <- as.Date(sona$date,format = "%d-%m-%Y")
-tidy_sona <- sona %>% unnest_tokens(word, speech, token = "words", to_lower = T)
 
 #### Bag-of-words ####
 word_bag <- tidy_sona %>%
@@ -175,6 +184,12 @@ tfidf <- sona_tdf %>%
   pivot_wider(names_from = word, values_from = tf_idf, values_fill = 0) %>%  
   left_join(sona %>% select(filename, president_13))
 
+# Building a classifier
+set.seed(321)
+sample_index <- createDataPartition(tfidf$president_13, p = 0.7, list = FALSE)
+training_ids <- tfidf[sample_index, ] %>%
+  select(filename)
+
 #### Decision Tree ####
 training_sona <- tfidf %>% 
   right_join(training_ids, by = 'filename') %>%
@@ -226,56 +241,51 @@ results
 #### n-grams ####
 # tokenisation
 sona_qgrams <- sona %>% 
-  unnest_tokens(quintgram, speech, token = "ngrams", n = 5)
+  unnest_tokens(trigram, speech, token = "ngrams", n = 3)
 
 # separate quintgrams
-qgrams_separated <- sona_qgrams %>% separate(quintgram,
-                                             c('word1', 'word2', 'word3','word4','word5'),
+trigrams_separated <- sona_qgrams %>% separate(trigram,
+                                             c('word1', 'word2', 'word3'),
                                              sep = " ")
 # remove stop words
-qgrams_filtered <- qgrams_separated %>%
-  filter_at(vars(word1, word2, word3, word4, word5), all_vars(!(. %in% stop_words$word)))
+trigrams_filtered <- trigrams_separated %>%
+  filter_at(vars(word1, word2, word3), all_vars(!(. %in% stop_words$word)))
 
 # join quintgrams again
-qgrams_united <- qgrams_filtered %>%
-  unite(quintgram, word1, word2, word3, word4, word5, sep = " ")
+trigrams_united <- trigrams_filtered %>%
+  unite(trigram, word1, word2, word3, sep = " ")
 
-top_quintgrams <- qgrams_united %>%
-  group_by(president_13, quintgram) %>%
+top_trigrams <- trigrams_united %>%
+  group_by(president_13, trigram) %>%
   count() %>%
   top_n(50, wt = n) %>%
   select(-n)
 
-sona_tdf <- qgrams_united %>%
-  inner_join(top_quintgrams) %>%
-  group_by(filename, president_13, quintgram) %>%
+sona_tdf <- trigrams_united %>%
+  inner_join(top_trigrams) %>%
+  group_by(filename, president_13, trigram) %>%
   count() %>%
   group_by(filename) %>%
   mutate(total = sum(n)) %>%
   ungroup()
 
-bag_of_q <- sona_tdf %>%
-  select(filename, quintgram, n) %>%
-  pivot_wider(names_from = quintgram, values_from = n, values_fill = 0) %>%
+bag_of_t <- sona_tdf %>%
+  select(filename, trigram, n) %>%
+  pivot_wider(names_from = trigram, values_from = n, values_fill = 0) %>%
   left_join(sona %>% select(filename, president_13)) %>%
   select(filename, president_13, everything())
 
 # Building a classifier
 set.seed(321)
-sample_index <- createDataPartition(bag_of_q$president_13, p = 0.7, list = FALSE)
-
-# Building a classifier
-set.seed(321)
-sample_index <- createDataPartition(bag_of_words$president_13, p = 0.7, list = FALSE)
-training_ids <- bag_of_words[sample_index, ] %>%
-  select(filename)
+sample_index <- createDataPartition(bag_of_t$president_13, p = 0.7, list = FALSE)
+training_ids <- bag_of_t[sample_index, ] %>% select(filename)
 
 #### Decision Tree ####
-training_sona <- bag_of_q %>%
+training_sona <- bag_of_t %>%
   right_join(training_ids, by = 'filename') %>% 
   select(-filename)
 
-test_sona <- bag_of_q %>%
+test_sona <- bag_of_t %>%
   anti_join(training_ids, by = 'filename') %>% 
   select(-filename)
 
@@ -289,11 +299,11 @@ training_rows <- sample_index
 
 train <- list()
 test <- list()
-train$x <- as.matrix(bag_of_q[training_rows,-c(1,2)])
-test$x <-  as.matrix(bag_of_q[-training_rows,-c(1,2)])
+train$x <- as.matrix(bag_of_t[training_rows,-c(1,2)])
+test$x <-  as.matrix(bag_of_t[-training_rows,-c(1,2)])
 
-train$y <- to_categorical(as.integer(bag_of_q$president_13[training_rows]) - 1)
-test$y <-  to_categorical(as.integer(bag_of_q$president_13[-training_rows]) - 1)
+train$y <- to_categorical(as.integer(bag_of_t$president_13[training_rows]) - 1)
+test$y <-  to_categorical(as.integer(bag_of_t$president_13[-training_rows]) - 1)
 
 tensorflow::set_random_seed(4)
 model <- keras_model_sequential() %>%
